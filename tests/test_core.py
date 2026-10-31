@@ -28,7 +28,10 @@ class SentinelTests(unittest.TestCase):
         out, err = io.StringIO(), io.StringIO()
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
             rc = main([command, *self.args, *extra])
-        if rc == 2:\n            import sys\n            sys.__stderr__.write(f"\\n[CI-DIAGNOSTIC] {command}: stdout={out.getvalue()!r} stderr={err.getvalue()!r}\\n")\n        return rc, out.getvalue(), err.getvalue()
+        if rc == 2:
+            import sys
+            sys.__stderr__.write(f"[CI-DIAGNOSTIC] {command}: stdout={out.getvalue()!r} stderr={err.getvalue()!r}\\n")
+        return rc, out.getvalue(), err.getvalue()
 
     def test_initial_baseline_and_clean(self):
         self.assertEqual(self.execute("baseline")[0], 0)
