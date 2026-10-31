@@ -210,13 +210,19 @@ def _read_file(path: Path, max_bytes: int) -> dict[str, Any]:
                 raise FIMError(f"File grew beyond configured size limit: {path}")
             digest.update(buf)
         after = os.fstat(f.fileno())
-    for attr in ("st_dev", "st_ino", "st_size", "st_mtime_ns", "st_ctime_ns"):
+    # On Windows, st_ctime_ns is not a stable modification timestamp across
+    # Python versions and can change when the handle is closed. On POSIX it
+    # tracks metadata changes and remains part of our race detection.
+    stable_fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns")
+    if os.name == "posix":
+        stable_fields += ("st_ctime_ns",)
+    for attr in stable_fields:
         if getattr(initial, attr) != getattr(after, attr):
             raise FIMError(f"File changed while being scanned: {path}")
     if bytes_read != after.st_size:
         raise FIMError(f"Unexpected file size during scan: {path}")
     final = path.lstat()
-    if (final.st_dev, final.st_ino, final.st_mtime_ns, final.st_ctime_ns) != (after.st_dev, after.st_ino, after.st_mtime_ns, after.st_ctime_ns):
+    if any(getattr(final, attr) != getattr(after, attr) for attr in stable_fields):
         raise FIMError(f"File changed immediately after scanning: {path}")
     return {"type": "file", "sha256": digest.hexdigest(), "size": bytes_read, "mode": stat.S_IMODE(after.st_mode)}
 
