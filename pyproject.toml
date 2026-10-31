@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sentinelfim"
+version = "0.1.0"
+description = "Authenticated file integrity monitoring CLI with HMAC-protected baselines"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{name = "Felipe Watter"}]
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = ["security", "file-integrity", "fim", "blue-team", "hmac", "sha256"]
+classifiers = ["Programming Language :: Python :: 3", "Topic :: Security", "Operating System :: OS Independent"]
+dependencies = []
+
+[project.scripts]
+sentinelfim = "sentinelfim.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
