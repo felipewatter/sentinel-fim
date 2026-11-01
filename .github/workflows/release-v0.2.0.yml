@@ -1,0 +1,40 @@
+name: Publish SentinelFIM v0.2.0
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/release-v0.2.0.yml]
+permissions:
+  contents: write
+jobs:
+  publish:
+    name: Publish validated version
+    if: github.repository == 'felipewatter/sentinel-fim'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+      - name: Verify tested commit and version
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor a6d47973eff13857e2e64bfc38775cade50d76af HEAD
+          test -s .github/release-notes/v0.2.0.md
+          git show a6d47973eff13857e2e64bfc38775cade50d76af:pyproject.toml | grep -Fq 'version = "0.2.0"'
+          git show a6d47973eff13857e2e64bfc38775cade50d76af:CHANGELOG.md | grep -Fq '[0.2.0]'
+      - name: Publish stable GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view v0.2.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo 'v0.2.0 already exists; will not overwrite'
+            exit 0
+          fi
+          gh release create v0.2.0 \
+            --repo "$GITHUB_REPOSITORY" \
+            --target a6d47973eff13857e2e64bfc38775cade50d76af \
+            --title 'SentinelFIM v0.2.0 — Security Hardening & Bounded Integrity Monitoring' \
+            --notes-file .github/release-notes/v0.2.0.md \
+            --latest
