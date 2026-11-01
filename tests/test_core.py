@@ -7,7 +7,8 @@ from pathlib import Path
 import tempfile
 import unittest
 from sentinelfim.cli import main
-from sentinelfim.core import FIMError, Settings, check, ensure_settings, generate_key, load_key, load_manifest
+from sentinelfim.core import (FIMError, Settings, atomic_manifest_write, check,
+                              ensure_settings, generate_key, load_key, load_manifest)
 
 class SentinelTests(unittest.TestCase):
     def setUp(self):
@@ -161,6 +162,77 @@ class SentinelTests(unittest.TestCase):
         rc, out, _ = self.execute("check", "--json")
         self.assertEqual(rc, 2)
         self.assertEqual(json.loads(out)["status"], "error")
+
+    def test_aggregate_bytes_limit_is_fail_closed(self):
+        (self.root / "second.txt").write_text("sixsix", encoding="utf-8")
+        rc, out, err = self.execute("baseline", "--max-total-bytes", "10")
+        self.assertEqual(rc, 2)
+        self.assertFalse(self.manifest.exists(), "Incomplete scan must not create baseline")
+        self.assertEqual(self.execute("baseline", "--max-total-bytes", "12")[0], 0)
+        self.assertEqual(self.execute("check", "--max-total-bytes", "12")[0], 0)
+        self.assertEqual(self.execute("check")[0], 2, "Signed limits must match command")
+
+    def test_directory_depth_limit_fails_not_silently_omitting_files(self):
+        nested = self.root / "nested"
+        nested.mkdir()
+        (nested / "note.txt").write_text("nested content", encoding="utf-8")
+        self.assertEqual(self.execute("baseline", "--max-depth", "0")[0], 2)
+        self.assertFalse(self.manifest.exists())
+        self.assertEqual(self.execute("baseline", "--max-depth", "1")[0], 0)
+        self.assertEqual(self.execute("check", "--max-depth", "1")[0], 0)
+        self.assertEqual(self.execute("check", "--max-depth", "2")[0], 2)
+
+    def test_excluded_directory_does_not_consume_depth(self):
+        nested = self.root / "ignored"
+        nested.mkdir()
+        (nested / "temp.txt").write_text("excluded", encoding="utf-8")
+        self.assertEqual(
+            self.execute("baseline", "--max-depth", "0", "--exclude", "ignored")[0], 0)
+        self.assertEqual(
+            self.execute("check", "--max-depth", "0", "--exclude", "ignored")[0], 0)
+
+    def test_legacy_signed_baseline_compatible_with_default_budgets(self):
+        self.assertEqual(self.execute("baseline")[0], 0)
+        key = load_key(self.key)
+        payload = load_manifest(self.manifest, key)
+        payload.pop("max_total_bytes")
+        payload.pop("max_depth")
+        atomic_manifest_write(self.manifest, payload, key, replace=True)
+        self.assertEqual(self.execute("check")[0], 0)
+
+    def test_signed_manifest_with_unsafe_path_is_rejected(self):
+        self.assertEqual(self.execute("baseline")[0], 0)
+        key = load_key(self.key)
+        payload = load_manifest(self.manifest, key)
+        payload["files"]["../outside.txt"] = payload["files"].pop("app.txt")
+        atomic_manifest_write(self.manifest, payload, key, replace=True)
+        self.assertEqual(self.execute("check")[0], 2)
+        with self.assertRaises(FIMError):
+            load_manifest(self.manifest, key)
+
+    def test_signed_manifest_rejects_malformed_file_digests(self):
+        self.assertEqual(self.execute("baseline")[0], 0)
+        key = load_key(self.key)
+        payload = load_manifest(self.manifest, key)
+        payload["files"]["app.txt"]["sha256"] = "not-a-sha256"
+        atomic_manifest_write(self.manifest, payload, key, replace=True)
+        self.assertEqual(self.execute("check")[0], 2)
+
+    def test_report_path_control_characters_are_escaped(self):
+        if os.name != "posix":
+            self.skipTest("POSIX filenames")
+        self.assertEqual(self.execute("baseline")[0], 0)
+        (self.root / "line\\nbreak.txt").write_text("safe", encoding="utf-8")
+        rc, out, _ = self.execute("check")
+        self.assertEqual(rc, 1)
+        self.assertNotIn("line\\nbreak.txt", out)
+        self.assertIn("line\\\\nbreak.txt", out)
+
+    def test_invalid_resource_limits_fail_before_writing(self):
+        for arg, value in [("--max-depth", "-1"), ("--max-depth", "129"),
+                           ("--max-total-bytes", "0"), ("--max-total-bytes", "5000000000")]:
+            self.assertEqual(self.execute("baseline", arg, value)[0], 2)
+        self.assertFalse(self.manifest.exists())
 
 if __name__ == "__main__":
     unittest.main()
