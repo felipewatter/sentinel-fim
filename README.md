@@ -7,7 +7,7 @@
 
 **Monitoramento de integridade de arquivos com SHA-256 e bases de referência autenticadas por HMAC-SHA256.** Uma ferramenta de linha de comando, sem dependências de execução externas, destinada a administradores, desenvolvedores, analistas de segurança e equipes Blue Team.
 
-> **Estado:** `v0.1.0` (beta pública). Segurança é uma propriedade que precisa ser verificada continuamente. O projeto ainda não passou por auditoria independente; não utilize como única proteção de produção.
+> **Estado do código:** `0.2.0` (beta pública); a release GitHub oficial é publicada separadamente. A versão `v0.1.1` foi o último lançamento anterior. Segurança é uma propriedade que precisa ser verificada continuamente. O projeto ainda não passou por auditoria independente; não utilize como única proteção de produção.
 
 **Repositório oficial:** https://github.com/felipewatter/sentinel-fim
 
@@ -51,7 +51,7 @@ O SentinelFIM segue a ideia de ferramentas consolidadas de integridade como [AID
 | Links simbólicos | Hash do destino textual do link | **Nunca segue** os links simbólicos |
 | Atualização controlada | `approve --accept-changes` | Recusa sobrescrever a base silenciosamente |
 | Proteção contra alterações durante leitura | Verificações de dispositivo, inode, tamanho, mtime e ctime | Não substitui snapshots atômicos do sistema de arquivos |
-| Segurança operacional | Limites de tamanho/contagem, escrita atômica, falha explícita | Sem executar scripts de arquivos monitorados |
+| Segurança operacional | Limites por arquivo, **bytes agregados**, quantidade de arquivos e profundidade da árvore; escrita atômica e falha explícita | Sem executar scripts de arquivos monitorados |
 | Relatórios | Texto e JSON (`--json`) | Não divulga conteúdo dos arquivos |
 | CLI multiplataforma | Python >= 3.10, biblioteca padrão | Windows, Linux, macOS |
 | Qualidade | `unittest`, CI em matriz de sistemas/Python | Execução local sem serviços |
@@ -288,6 +288,19 @@ Consuma o JSON produzido por `--json` e mapeie os campos `status`, `tracked`, `f
 9. **Não considere `clean` sinônimo de ambiente seguro:** significa apenas ausência de diferença no escopo e nos atributos definidos.
 
 Veja [Threat Model](docs/THREAT_MODEL.md) e [Security Policy](SECURITY.md).
+
+## Atualização da v0.1.x para v0.2.0
+
+Novos parâmetros de segurança:
+
+```bash
+sentinelfim baseline --root ./diretorio --key ../estado/secret.key --manifest ../estado/base.json --max-total-bytes 1073741824 --max-depth 32
+sentinelfim check --root ./diretorio --key ../estado/secret.key --manifest ../estado/base.json --max-total-bytes 1073741824 --max-depth 32
+```
+
+**Compatibilidade:** manifestos v0.1.x autenticados permanecem válidos com esses limites padrão. O HMAC continua sendo verificado antes de qualquer comparação. Se alterar os limites, o `check` retorna erro de configurações diferentes, em vez de indicar que está limpo. Após uma revisão explícita do conteúdo, reavalie com o procedimento documentado em [docs/UPGRADING_0.2.md](docs/UPGRADING_0.2.md).
+
+A validação é **periódica**, não monitora alterações em tempo real. Valores de caminhos em saídas texto são escapados para impedir caracteres de controle ou quebras de linha dentro de um registro.
 
 ## Testes e GitHub Actions
 

@@ -36,3 +36,14 @@
 ## Non-goals
 
 No real-time event collection, SIEM transport, cloud storage, forensic timeline, YARA scanning, alert webhooks, data encryption, automatic repair, or system-wide malware certification.
+
+## Novos controles v0.2.0
+
+| Risco | Mitigação | Limite |
+|---|---|---|
+| Árvore com muitos arquivos pequenos | Orçamento de bytes agregado `--max-total-bytes` | Não substitui limitação de CPU/tempo fora do processo |
+| Diretórios muito profundos | Limite de profundidade `--max-depth` | Arquivos e diretórios excluídos ficam fora da varredura por decisão do operador |
+| Substituição do manifesto por symlink durante leitura | `O_NOFOLLOW`, identidade do descritor e comparação de metadados | Não impede toda corrida entre sistemas de arquivos/conteúdo mutável |
+| HMAC válido contendo entradas malformadas | Validação de estrutura e caminhos assinados antes do diff | Chave comprometida pode forjar dados dentro do esquema permitido |
+| Terminal escape em nomes de arquivos | Escape de nomes na saída texto | JSON ainda contém metadados; proteja o relatório |
+| Rollback para um manifesto antigo já assinado | **Não mitigado criptograficamente** | Armazenamento imutável externo ou contador monotônico confiável recomendado |
