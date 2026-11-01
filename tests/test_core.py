@@ -222,11 +222,11 @@ class SentinelTests(unittest.TestCase):
         if os.name != "posix":
             self.skipTest("POSIX filenames")
         self.assertEqual(self.execute("baseline")[0], 0)
-        (self.root / "line\\nbreak.txt").write_text("safe", encoding="utf-8")
+        (self.root / "line\nbreak.txt").write_text("safe", encoding="utf-8")
         rc, out, _ = self.execute("check")
         self.assertEqual(rc, 1)
-        self.assertNotIn("line\\nbreak.txt", out)
-        self.assertIn("line\\\\nbreak.txt", out)
+        self.assertNotIn("line\nbreak.txt", out)
+        self.assertIn("line\\nbreak.txt", out)
 
     def test_invalid_resource_limits_fail_before_writing(self):
         for arg, value in [("--max-depth", "-1"), ("--max-depth", "129"),

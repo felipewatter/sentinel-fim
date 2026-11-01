@@ -329,11 +329,11 @@ def scan_tree(root: Path, excludes: tuple[str, ...], max_bytes: int, max_files: 
                 relative = candidate.relative_to(root).as_posix()
                 if ignored(relative, excludes):
                     directories.remove(d)
-                elif relative.count("/") + 1 > max_depth:
-                    raise FIMError("Directory depth limit exceeded; scan incomplete")
                 elif candidate.is_symlink():
                     directories.remove(d)
                     add(relative, candidate)
+                elif relative.count("/") + 1 > max_depth:
+                    raise FIMError("Directory depth limit exceeded; scan incomplete")
             directories.sort()
             for name in sorted(files):
                 candidate = parent / name

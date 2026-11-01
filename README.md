@@ -233,6 +233,8 @@ As opções exigidas em `baseline`, `check` e `approve` são `--root`, `--key`, 
 | `--exclude GLOB` | Nenhuma | Excluir caminhos com padrões relativos; repetível |
 | `--max-file-bytes N` | 104857600 (100 MiB) | Falha ao encontrar arquivo maior que o limite |
 | `--max-files N` | 250000 | Falha se a contagem ultrapassar o limite |
+| `--max-total-bytes N` | 1073741824 (1 GiB) | Limita a soma de bytes inspecionados, máximo 4 GiB; excesso é erro 2 |
+| `--max-depth N` | 32 | Profundidade máxima de diretórios, até 128; excesso é erro 2 |
 | `--json` | Desligado | Escreve um objeto JSON em stdout |
 | `--accept-changes` | Desligado | Confirmação obrigatória em `approve` |
 
