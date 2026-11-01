@@ -5,12 +5,13 @@ import json
 import sys
 from pathlib import Path
 from .core import (
-    DEFAULT_MAX_BYTES, DEFAULT_MAX_FILES, FIMError, Settings, atomic_manifest_write,
+    DEFAULT_MAX_BYTES, DEFAULT_MAX_FILES, DEFAULT_MAX_TOTAL_BYTES, DEFAULT_MAX_DEPTH,
+    FIMError, Settings, atomic_manifest_write,
     capture, check, ensure_settings, generate_key, load_key,
 )
 
 def parser() -> argparse.ArgumentParser:
-    root = argparse.ArgumentParser(prog="sentinelfim", description="Authenticated file-integrity baselines")
+    root = argparse.ArgumentParser(prog="sentinelfim", description="Authenticated, bounded file-integrity baselines")
     cmds = root.add_subparsers(dest="command", required=True)
     keygen = cmds.add_parser("keygen", help="Create a private 256-bit HMAC key")
     keygen.add_argument("--key", required=True, type=Path)
@@ -22,6 +23,10 @@ def parser() -> argparse.ArgumentParser:
         item.add_argument("--exclude", action="append", default=[], metavar="GLOB")
         item.add_argument("--max-file-bytes", type=int, default=DEFAULT_MAX_BYTES)
         item.add_argument("--max-files", type=int, default=DEFAULT_MAX_FILES)
+        item.add_argument("--max-total-bytes", type=int, default=DEFAULT_MAX_TOTAL_BYTES,
+                          help="Maximum sum of file bytes hashed (default: 1 GiB)")
+        item.add_argument("--max-depth", type=int, default=DEFAULT_MAX_DEPTH,
+                          help="Maximum nested directory depth (default: 32)")
         item.add_argument("--json", action="store_true", help="Machine-readable single JSON object")
         if command == "approve":
             item.add_argument("--accept-changes", action="store_true", help="Required explicit acknowledgement")
@@ -33,7 +38,8 @@ def emit(result: dict, as_json: bool) -> None:
     else:
         print(f"SentinelFIM: {result['status']} | tracked={result.get('tracked', 0)} | changes={len(result.get('findings', []))}")
         for finding in result.get("findings", []):
-            print(f"  {finding['change']:<9} {finding['path']}")
+            # Quoted JSON escapes newlines, ANSI sequences and control chars in malicious names.
+            print(f"  {finding['change']:<9} {json.dumps(finding['path'], ensure_ascii=True)}")
 
 def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
@@ -42,7 +48,9 @@ def main(argv: list[str] | None = None) -> int:
             generate_key(args.key)
             print(f"Key created: {args.key} (keep private; never commit)")
             return 0
-        s = ensure_settings(Settings(args.root, args.key, args.manifest, tuple(args.exclude), args.max_file_bytes, args.max_files))
+        s = ensure_settings(Settings(args.root, args.key, args.manifest, tuple(args.exclude),
+                                     args.max_file_bytes, args.max_files,
+                                     args.max_total_bytes, args.max_depth))
         if args.command == "baseline":
             if s.manifest.exists() or s.manifest.is_symlink():
                 raise FIMError("Manifest already exists; refusing to overwrite")
