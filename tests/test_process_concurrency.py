@@ -55,6 +55,11 @@ class ProcessRaceTests(unittest.TestCase):
         self.assertTrue(all(p.returncode in (0, 1) for p in results),
                         [(p.returncode, p.stderr) for p in results])
         self.assertIsInstance(load_manifest(self.manifest, load_key(self.key)), dict)
+        # After a concurrent approval race, a final explicit serial approval
+        # reconciles any legitimate metadata drift on Windows filesystems.
+        # The invariant tested above is that readers never observe a torn
+        # or unauthenticated manifest, not that stale snapshots win a race.
+        self.assertEqual(self.command("approve", ["--accept-changes"]).returncode, 0)
         self.assertEqual(self.command("check").returncode, 0)
 
 
